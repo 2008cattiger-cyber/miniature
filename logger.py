@@ -1,35 +1,48 @@
 import logging
 import os
 from logging.handlers import TimedRotatingFileHandler
+from telebot import TeleBot
+from config import ADMIN_ID
+from config import BOT_TOKEN
+
+bot = TeleBot(BOT_TOKEN)
+
+class TelegramErrorHandler(logging.Handler):
+    """Отправляет ошибки админу в Telegram."""
+    def emit(self, record):
+        try:
+            log_entry = self.format(record)
+            bot.send_message(ADMIN_ID, f"🔥 Ошибка:\n{log_entry}")
+        except Exception:
+            pass
 
 
 def setup_logger():
-    # Создание директории для логов
     os.makedirs("logs", exist_ok=True)
 
-    # Формат логов
-    log_format = "[%(asctime)s] [%(levelname)s] %(message)s"
+    formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s")
 
-    # Ежедневная ротация логов, хранится 7 дней
-    handler = TimedRotatingFileHandler(
+    file_handler = TimedRotatingFileHandler(
         filename="logs/bot.log",
-        when="midnight",       # новый файл каждый день
+        when="midnight",
         interval=1,
-        backupCount=7,         # сколько дней хранить
+        backupCount=7,
         encoding="utf-8"
     )
-    handler.setFormatter(logging.Formatter(log_format))
+    file_handler.setFormatter(formatter)
 
-    # Основной логгер проекта
+    # новый обработчик — отправка ошибок админу
+    tg_handler = TelegramErrorHandler()
+    tg_handler.setLevel(logging.ERROR)
+    tg_handler.setFormatter(formatter)
+
     logger = logging.getLogger("bot")
     logger.setLevel(logging.INFO)
-    logger.addHandler(handler)
+    logger.addHandler(file_handler)
+    logger.addHandler(tg_handler)
 
-    # Отключаем дублирование логов
     logger.propagate = False
-
     return logger
 
 
-# Глобальный логгер, который импортируется в main.py
 logger = setup_logger()
