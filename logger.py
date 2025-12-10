@@ -1,47 +1,35 @@
 import logging
 import os
 from logging.handlers import TimedRotatingFileHandler
-from telebot import TeleBot
-from config import ADMIN_ID
-from config import BOT_TOKEN
-
-bot = TeleBot(BOT_TOKEN)
-
-class TelegramErrorHandler(logging.Handler):
-    """Отправляет ошибки админу в Telegram."""
-    def emit(self, record):
-        try:
-            log_entry = self.format(record)
-            bot.send_message(ADMIN_ID, f"🔥 Ошибка:\n{log_entry}")
-        except Exception:
-            pass
 
 
 def setup_logger():
+    # создаём папку logs, если её нет
     os.makedirs("logs", exist_ok=True)
 
+    # формат логов
     formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s")
 
+    # файл логов с ротацией (новый файл каждый день)
     file_handler = TimedRotatingFileHandler(
         filename="logs/bot.log",
-        when="midnight",
+        when="midnight",      # новый файл каждый день
         interval=1,
-        backupCount=7,
+        backupCount=7,        # хранить 7 дней
         encoding="utf-8"
     )
     file_handler.setFormatter(formatter)
 
-    # новый обработчик — отправка ошибок админу
-    tg_handler = TelegramErrorHandler()
-    tg_handler.setLevel(logging.ERROR)
-    tg_handler.setFormatter(formatter)
-
+    # создаём логгер
     logger = logging.getLogger("bot")
     logger.setLevel(logging.INFO)
-    logger.addHandler(file_handler)
-    logger.addHandler(tg_handler)
 
+    # добавляем запись в файл
+    logger.addHandler(file_handler)
+
+    # отключаем распространение в корневой логгер
     logger.propagate = False
+
     return logger
 
 
