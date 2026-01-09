@@ -15,6 +15,7 @@ def setup_logger():
         when="midnight",
         interval=1,
         backupCount=7,
+
         encoding="utf-8"
     )
     file_handler.setFormatter(formatter)
