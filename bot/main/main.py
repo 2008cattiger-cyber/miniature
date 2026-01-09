@@ -87,6 +87,13 @@ def create_buttons(*rows):
     return markup
 
 
+def safe_delete_message(chat_id, message_id):
+    try:
+        bot.delete_message(chat_id, message_id)
+    except Exception:
+        pass
+
+
 # ========================================================================
 #                           КОМАНДА /start
 # ========================================================================
@@ -242,6 +249,8 @@ def callbacks(call):
     logger.info(f"Callback '{data}' от пользователя {user.id} @{user.username}")
 
     try:
+        safe_delete_message(call.message.chat.id, call.message.message_id)
+
         if data == "about_me":
             send_about_info(call.message.chat.id)
 
