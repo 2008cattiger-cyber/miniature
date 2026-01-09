@@ -1,0 +1,12 @@
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: my-tg-bot
+    env_file:
+      - .env
+    volumes:
+      - ../media:/app/main/media
+    # Эта команда не дает контейнеру завершиться, чтобы мы могли войти внутрь для отладки.
+    # command: ["tail", "-f", "/dev/null"]
