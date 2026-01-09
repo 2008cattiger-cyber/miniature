@@ -99,6 +99,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# Local runtime assets
+logs/
+media/
+
 # Spyder project settings
 .spyderproject
 .spyderworkspace
