@@ -10,6 +10,7 @@ from texts import BUTTONS, MESSAGES, TITLES
 
 
 bot = telebot.TeleBot(BOT_TOKEN)
+tracked_messages = {}
 
 
 # ========================================================================
@@ -60,7 +61,7 @@ def send_photo(chat_id, path, caption=None, markup=None):
     """
     try:
         with open(path, "rb") as photo:
-            bot.send_photo(
+            message = bot.send_photo(
                 chat_id,
                 photo,
                 caption=caption,
@@ -68,12 +69,14 @@ def send_photo(chat_id, path, caption=None, markup=None):
                 parse_mode="Markdown"
             )
         logger.info(f"Одиночное фото отправлено: {path} → chat({chat_id})")
+        return message
 
     except FileNotFoundError:
         logger.error(f"Фото не найдено: {path}")
 
     except Exception as e:
         logger.error(f"Ошибка при отправке фото {path}: {e}")
+    return None
 
 
 def create_buttons(*rows):
@@ -94,12 +97,30 @@ def safe_delete_message(chat_id, message_id):
         pass
 
 
+def track_message(chat_id, message):
+    if message is None:
+        return
+    tracked_messages.setdefault(chat_id, []).append(message.message_id)
+
+
+def clear_tracked_messages(chat_id):
+    for message_id in tracked_messages.get(chat_id, []):
+        safe_delete_message(chat_id, message_id)
+    tracked_messages[chat_id] = []
+
+
+def send_tracked_message(chat_id, text, **kwargs):
+    message = bot.send_message(chat_id, text, **kwargs)
+    track_message(chat_id, message)
+    return message
+
+
 # ========================================================================
 #                           КОМАНДА /start
 # ========================================================================
 
 def send_main_menu(chat_id):
-    send_photo(chat_id, "media/welcome/fistphoto.jpg")
+    track_message(chat_id, send_photo(chat_id, "media/welcome/fistphoto.jpg"))
 
     markup = create_buttons(
         [types.InlineKeyboardButton(BUTTONS["ABOUT_ME"], callback_data="about_me")],
@@ -107,7 +128,7 @@ def send_main_menu(chat_id):
         [types.InlineKeyboardButton(BUTTONS["MY_WORKS"], callback_data="my_job")]
     )
 
-    bot.send_message(chat_id, MESSAGES["START"], reply_markup=markup)
+    send_tracked_message(chat_id, MESSAGES["START"], reply_markup=markup)
 
 
 @bot.message_handler(commands=['старт', 'start'])
@@ -115,6 +136,7 @@ def on_start(message):
     user = message.from_user
     logger.info(f"/start от пользователя {user.id} @{user.username}")
 
+    clear_tracked_messages(message.chat.id)
     send_main_menu(message.chat.id)
 
 
@@ -124,11 +146,11 @@ def on_start(message):
 
 def send_about_info(chat_id):
     logger.info(f"Пользователь {chat_id} открыл 'Обо мне'")
-    send_photo(chat_id, "media/welcome/Photo.jpg")
+    track_message(chat_id, send_photo(chat_id, "media/welcome/Photo.jpg"))
     markup = create_buttons(
         [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_main")]
     )
-    bot.send_message(chat_id, MESSAGES["ABOUT_ME"], parse_mode="Markdown", reply_markup=markup)
+    send_tracked_message(chat_id, MESSAGES["ABOUT_ME"], parse_mode="Markdown", reply_markup=markup)
 
 
 # ========================================================================
@@ -149,7 +171,7 @@ def send_categories(chat_id):
 
     markup.add(types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_main"))
 
-    bot.send_message(chat_id, TITLES["CHOOSE_CATEGORY"], reply_markup=markup)
+    send_tracked_message(chat_id, TITLES["CHOOSE_CATEGORY"], reply_markup=markup)
 
 
 # ========================================================================
@@ -165,7 +187,7 @@ def send_subscription_check(chat_id):
         [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_main")]
     )
 
-    bot.send_message(chat_id, MESSAGES["SUBSCRIBE"], reply_markup=markup)
+    send_tracked_message(chat_id, MESSAGES["SUBSCRIBE"], reply_markup=markup)
 
 
 # ========================================================================
@@ -206,9 +228,11 @@ def send_category_album(chat_id, category):
             logger.warning(f"В категории '{category}' нет доступных фото")
             return
 
-        bot.send_media_group(chat_id, media)
+        messages = bot.send_media_group(chat_id, media)
+        for message in messages:
+            track_message(chat_id, message)
 
-        bot.send_message(
+        send_tracked_message(
             chat_id,
             TITLES["CATEGORY_HEADER"].format(name=category),
             parse_mode="Markdown",
@@ -249,6 +273,7 @@ def callbacks(call):
     logger.info(f"Callback '{data}' от пользователя {user.id} @{user.username}")
 
     try:
+        clear_tracked_messages(call.message.chat.id)
         safe_delete_message(call.message.chat.id, call.message.message_id)
 
         if data == "about_me":
@@ -271,13 +296,13 @@ def callbacks(call):
                     )],
                     [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_subscribe")]
                 )
-                bot.send_message(call.message.chat.id, MESSAGES["THANKS_FOR_SUB"], reply_markup=markup)
+                send_tracked_message(call.message.chat.id, MESSAGES["THANKS_FOR_SUB"], reply_markup=markup)
             else:
                 logger.warning(f"Пользователь {user.id} НЕ подписан на канал")
                 markup = create_buttons(
                     [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_subscribe")]
                 )
-                bot.send_message(call.message.chat.id, MESSAGES["NOT_SUBSCRIBED"], reply_markup=markup)
+                send_tracked_message(call.message.chat.id, MESSAGES["NOT_SUBSCRIBED"], reply_markup=markup)
 
         elif data == "back_main":
             send_main_menu(call.message.chat.id)
