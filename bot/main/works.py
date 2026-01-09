@@ -50,7 +50,7 @@ my_works = {
         {"title": "Новогоднее 2", "callback": "work_newyear_3", "photo": "media/works/newyear/newyear2.jpg"},
         {"title": "Новогоднее 3", "callback": "work_newyear_4", "photo": "media/works/newyear/newyear3.jpg"},
     ],
-    "📦 Ящики": [
+    "🛋️ Рум-бокс": [
         {"title": "Ящик", "callback": "work_roombox_1", "photo": "media/works/roombox/roombox.jpg"},
         {"title": "Ящик 1", "callback": "work_roombox_2", "photo": "media/works/roombox/roombox1.jpg"},
         {"title": "Ящик 2", "callback": "work_roombox_3", "photo": "media/works/roombox/roombox2.jpg"},
