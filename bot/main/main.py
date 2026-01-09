@@ -17,15 +17,16 @@ tracked_messages = {}
 #                      УВЕДОМЛЕНИЯ ОБ ОШИБКАХ
 # ========================================================================
 
-def notify_user_error(chat_id):
+def notify_user_error(chat_id, markup=None):
     """
     Сообщаем пользователю, что что-то пошло не так,
     но без технических подробностей.
     """
     try:
-        bot.send_message(
+        send_tracked_message(
             chat_id,
-            "⚠️  К сожалению, этот функционал временно недоступен. Мы уже работаем над исправлением."
+            "⚠️  К сожалению, этот функционал временно недоступен. Мы уже работаем над исправлением.",
+            reply_markup=markup
         )
     except Exception:
         # Даже если тут что-то упадёт — пользователя уже не спасаем
@@ -319,7 +320,16 @@ def callbacks(call):
 
     except Exception as e:
         # 1. Сообщаем пользователю
-        notify_user_error(call.message.chat.id)
+        fallback_markup = None
+        if data.startswith("cat_"):
+            fallback_markup = create_buttons(
+                [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_categories")]
+            )
+        else:
+            fallback_markup = create_buttons(
+                [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_main")]
+            )
+        notify_user_error(call.message.chat.id, markup=fallback_markup)
 
         # 2. Пишем в лог-файл
         logger.exception(f"Ошибка в callback '{data}' для пользователя {user.id}: {e}")
