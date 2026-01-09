@@ -2,7 +2,7 @@ import telebot
 from telebot import types
 import traceback
 
-from works import my_works
+from works import get_categories, list_category_photos, CATEGORY_TITLES
 from subscription import is_subscribed
 from config import BOT_TOKEN, CHANNEL_ID, ADMIN_ID
 from logger import logger
@@ -161,13 +161,15 @@ def send_about_info(chat_id):
 def send_categories(chat_id):
     logger.info(f"Пользователь {chat_id} открыл список категорий")
 
-    categories = list(my_works.keys())
+    categories = get_categories()
     markup = types.InlineKeyboardMarkup()
 
     for i in range(0, len(categories), 2):
-        row = [types.InlineKeyboardButton(categories[i], callback_data=f"cat_{categories[i]}")]
+        left_key, left_title = categories[i]
+        row = [types.InlineKeyboardButton(left_title, callback_data=f"cat_{left_key}")]
         if i + 1 < len(categories):
-            row.append(types.InlineKeyboardButton(categories[i + 1], callback_data=f"cat_{categories[i + 1]}"))
+            right_key, right_title = categories[i + 1]
+            row.append(types.InlineKeyboardButton(right_title, callback_data=f"cat_{right_key}"))
         markup.add(*row)
 
     markup.add(types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_main"))
@@ -203,17 +205,17 @@ def send_category_album(chat_id, category):
     """
     logger.info(f"Пользователь {chat_id} открыл категорию '{category}'")
 
-    works = my_works.get(category, [])
+    works = list_category_photos(category)
     if not works:
-        logger.warning(f"Категория '{category}' пустая")
+        logger.warning(f"Категория '{category}' пустая или не найдена")
         return
 
     media = []
     open_files = []
 
     try:
-        for item in works:
-            path = item.get("photo")
+        for path_obj in works:
+            path = str(path_obj)
 
             try:
                 f = open(path, "rb")
@@ -233,9 +235,10 @@ def send_category_album(chat_id, category):
         for message in messages:
             track_message(chat_id, message)
 
+        display_name = CATEGORY_TITLES.get(category, category)
         send_tracked_message(
             chat_id,
-            TITLES["CATEGORY_HEADER"].format(name=category),
+            TITLES["CATEGORY_HEADER"].format(name=display_name),
             parse_mode="Markdown",
             reply_markup=create_buttons(
                 [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_categories")]
