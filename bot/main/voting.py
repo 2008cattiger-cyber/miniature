@@ -131,6 +131,25 @@ def _build_results_text(poll):
 
 
 def register_voting_handlers(bot, logger, admin_id, channel_id):
+    @bot.message_handler(commands=["help"])
+    def handle_help(message):
+        user = message.from_user
+        if not _is_admin(user.id, admin_id):
+            return
+
+        help_text = (
+            "Доступные команды:\n"
+            "/start\n"
+            "/vote Вопрос | Вариант 1 | Вариант 2\n"
+            "/vote channel -1001234567890 Вопрос | Вариант 1 | Вариант 2\n"
+            "/vote_results\n"
+            "/vote_results POLL_ID\n"
+            "/vote_results channel -1001234567890\n"
+            "/vote_close POLL_ID\n"
+            "/vote_close channel -1001234567890\n"
+        )
+        bot.send_message(message.chat.id, help_text)
+
     @bot.message_handler(commands=["vote"])
     def handle_vote_command(message):
         user = message.from_user
