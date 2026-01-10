@@ -78,7 +78,12 @@ def _build_results_text(poll):
     for idx, option in enumerate(poll["options"]):
         voters = []
         for user_id, opt_idx in votes.items():
-            if opt_idx == idx:
+            selected = opt_idx
+            if isinstance(opt_idx, list):
+                selected = idx in opt_idx
+            else:
+                selected = opt_idx == idx
+            if selected:
                 info = users.get(user_id, {})
                 voters.append(_format_user(info, user_id))
         lines.append(f"{idx + 1}. {option} - {len(voters)} vote(s)")
@@ -133,8 +138,16 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         for idx, option in enumerate(options):
             text_lines.append(f"{idx + 1}. {option}")
         text_lines.append("")
+        text_lines.append("Select one or more options, then press Confirm.")
         text_lines.append(f"Ends at: {_format_end_time(end_at)}")
         text = "\n".join(text_lines)
+
+        markup.add(
+            types.InlineKeyboardButton(
+                "Confirm",
+                callback_data=f"vote_confirm:{poll_id}"
+            )
+        )
 
         message_out = bot.send_message(target_chat_id, text, reply_markup=markup)
 
@@ -149,6 +162,8 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             "message_id": message_out.message_id,
             "votes": {},
             "users": {},
+            "drafts": {},
+            "confirmed": {},
             "closed": False,
         }
         _save_state(state)
@@ -210,8 +225,52 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         results_text = _build_results_text(poll)
         bot.send_message(message.chat.id, results_text)
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("vote:"))
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("vote:") or call.data.startswith("vote_confirm:"))
     def handle_vote_callback(call):
+        if call.data.startswith("vote_confirm:"):
+            try:
+                _, poll_id = call.data.split(":", 1)
+            except Exception:
+                bot.answer_callback_query(call.id, "Invalid vote data.")
+                return
+
+            state = _load_state()
+            poll = state.get("polls", {}).get(poll_id)
+            if not poll:
+                bot.answer_callback_query(call.id, "Poll not found.")
+                return
+
+            if poll.get("closed") or _now_ts() >= poll["end_at"]:
+                poll["closed"] = True
+                state["polls"][poll_id] = poll
+                _save_state(state)
+                bot.answer_callback_query(call.id, "Poll is closed.")
+                return
+
+            user = call.from_user
+            user_id = str(user.id)
+            confirmed = poll.get("confirmed", {}).get(user_id)
+            if confirmed:
+                bot.answer_callback_query(call.id, "Vote already confirmed.")
+                return
+
+            selections = poll.get("drafts", {}).get(user_id, [])
+            if not selections:
+                bot.answer_callback_query(call.id, "Select at least one option.")
+                return
+
+            poll.setdefault("votes", {})[user_id] = sorted(set(selections))
+            poll.setdefault("confirmed", {})[user_id] = True
+            poll.setdefault("users", {})[user_id] = {
+                "username": user.username,
+                "name": " ".join(filter(None, [user.first_name, user.last_name])).strip(),
+            }
+            state["polls"][poll_id] = poll
+            _save_state(state)
+            bot.answer_callback_query(call.id, "Vote confirmed.")
+            logger.info(f"Vote confirmed in poll {poll_id} from {user_id} -> {selections}")
+            return
+
         try:
             _, poll_id, option_idx = call.data.split(":", 2)
             option_idx = int(option_idx)
@@ -238,7 +297,20 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
 
         user = call.from_user
         user_id = str(user.id)
-        poll.setdefault("votes", {})[user_id] = option_idx
+        if poll.get("confirmed", {}).get(user_id):
+            bot.answer_callback_query(call.id, "Vote already confirmed.")
+            return
+
+        drafts = poll.setdefault("drafts", {})
+        selections = set(drafts.get(user_id, []))
+        if option_idx in selections:
+            selections.remove(option_idx)
+            action_text = "Removed from selection."
+        else:
+            selections.add(option_idx)
+            action_text = "Added to selection."
+        drafts[user_id] = sorted(selections)
+
         poll.setdefault("users", {})[user_id] = {
             "username": user.username,
             "name": " ".join(filter(None, [user.first_name, user.last_name])).strip(),
@@ -246,5 +318,5 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         state["polls"][poll_id] = poll
         _save_state(state)
 
-        bot.answer_callback_query(call.id, "Vote recorded.")
-        logger.info(f"Vote in poll {poll_id} from {user_id} -> {option_idx}")
+        bot.answer_callback_query(call.id, action_text)
+        logger.info(f"Selection update in poll {poll_id} from {user_id} -> {drafts[user_id]}")
