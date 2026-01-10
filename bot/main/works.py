@@ -10,7 +10,7 @@ CATEGORY_TITLES = {
     "closet": "🚪 Миниатюра на полку",
     "doll": "🪆 Куклы",
     "furniture": "🪑 Мебель",
-    "miniature": "🏡 Миниатюры",
+    "miniature": "🏡 Другое",
     "newyear": "🎄 Новогодние",
     "roombox": "🛋️ Рум-бокс",
     "sea": "🌊 Море",
