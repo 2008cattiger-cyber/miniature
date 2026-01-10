@@ -53,6 +53,21 @@ def _parse_vote_command(text):
     return question, options
 
 
+def _parse_channel_id(text):
+    if not text:
+        return None, None
+    parts = text.split(" ", 2)
+    if len(parts) < 3:
+        return None, None
+    if parts[1].lower() != "channel":
+        return None, None
+    channel_id_raw = parts[2].strip()
+    try:
+        return int(channel_id_raw), channel_id_raw
+    except Exception:
+        return None, None
+
+
 def _format_end_time(ts):
     return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
@@ -102,16 +117,23 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         if not _is_admin(user.id, admin_id):
             return
 
+        channel_override = None
+        if message.text and " channel " in message.text.lower():
+            channel_override, _ = _parse_channel_id(message.text)
+
         question, options = _parse_vote_command(message.text)
         if not question:
             bot.send_message(
                 message.chat.id,
-                "Usage: /vote Question | Option 1 | Option 2"
+                "Usage: /vote Question | Option 1 | Option 2\n"
+                "Optional: /vote channel -1001234567890 Question | Option 1 | Option 2"
             )
             return
 
         target_chat_id = message.chat.id
-        if message.chat.type == "private":
+        if channel_override:
+            target_chat_id = channel_override
+        elif message.chat.type == "private":
             try:
                 target_chat_id = int(channel_id)
             except Exception:
@@ -182,6 +204,12 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
 
         parts = (message.text or "").split()
         poll_id = parts[1] if len(parts) > 1 else None
+        channel_id_override = None
+        if len(parts) > 2 and parts[1].lower() == "channel":
+            try:
+                channel_id_override = int(parts[2])
+            except Exception:
+                channel_id_override = None
 
         state = _load_state()
         polls = state.get("polls", {})
@@ -190,7 +218,25 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             return
 
         if not poll_id:
-            poll_id = max(polls.values(), key=lambda p: p.get("created_at", 0))["poll_id"]
+            candidates = list(polls.values())
+            if channel_id_override is not None:
+                candidates = [
+                    poll for poll in candidates
+                    if poll.get("chat_id") == channel_id_override
+                ]
+            if not candidates:
+                bot.send_message(message.chat.id, "No polls found for that channel.")
+                return
+            poll_id = max(candidates, key=lambda p: p.get("created_at", 0))["poll_id"]
+        elif poll_id and poll_id.lower() == "channel" and channel_id_override is not None:
+            candidates = [
+                poll for poll in polls.values()
+                if poll.get("chat_id") == channel_id_override
+            ]
+            if not candidates:
+                bot.send_message(message.chat.id, "No polls found for that channel.")
+                return
+            poll_id = max(candidates, key=lambda p: p.get("created_at", 0))["poll_id"]
 
         poll = polls.get(poll_id)
         if not poll:
@@ -208,12 +254,33 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
 
         parts = (message.text or "").split()
         if len(parts) < 2:
-            bot.send_message(message.chat.id, "Usage: /vote_close POLL_ID")
+            bot.send_message(
+                message.chat.id,
+                "Usage: /vote_close POLL_ID\n"
+                "Optional: /vote_close channel -1001234567890"
+            )
             return
 
         poll_id = parts[1]
+        channel_id_override = None
+        if poll_id.lower() == "channel" and len(parts) >= 3:
+            try:
+                channel_id_override = int(parts[2])
+            except Exception:
+                channel_id_override = None
+            poll_id = None
         state = _load_state()
-        poll = state.get("polls", {}).get(poll_id)
+        if poll_id is None:
+            candidates = [
+                poll for poll in state.get("polls", {}).values()
+                if poll.get("chat_id") == channel_id_override
+            ]
+            if not candidates:
+                bot.send_message(message.chat.id, "No polls found for that channel.")
+                return
+            poll = max(candidates, key=lambda p: p.get("created_at", 0))
+        else:
+            poll = state.get("polls", {}).get(poll_id)
         if not poll:
             bot.send_message(message.chat.id, f"Poll not found: {poll_id}")
             return
