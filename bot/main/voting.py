@@ -141,12 +141,12 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             "Доступные команды:\n"
             "/start\n"
             "/vote Вопрос | Вариант 1 | Вариант 2\n"
-            "/vote channel -1001234567890 Вопрос | Вариант 1 | Вариант 2\n"
+            "/vote channel CHANNEL_ID Вопрос | Вариант 1 | Вариант 2\n"
             "/vote_results\n"
             "/vote_results POLL_ID\n"
-            "/vote_results channel -1001234567890\n"
+            "/vote_results channel CHANNEL_ID\n"
             "/vote_close POLL_ID\n"
-            "/vote_close channel -1001234567890\n"
+            "/vote_close channel CHANNEL_ID\n"
         )
         bot.send_message(message.chat.id, help_text)
 
