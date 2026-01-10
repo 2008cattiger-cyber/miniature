@@ -193,7 +193,7 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         text_lines = [
             question,
             "",
-            "Вы можете выбрать несколько вариантов ответа, затем нажмите кнопку Подтвердить ✅.",
+            "Выберите, затем нажмите кнопку Подтвердить ✅.",
             "",
             "Кончается: " + _format_end_date(end_at),
         ]
