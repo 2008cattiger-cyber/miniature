@@ -7,10 +7,12 @@ from subscription import is_subscribed
 from config import BOT_TOKEN, CHANNEL_ID, ADMIN_ID
 from logger import logger
 from texts import BUTTONS, MESSAGES, TITLES
+from voting import register_voting_handlers
 
 
 bot = telebot.TeleBot(BOT_TOKEN)
 tracked_messages = {}
+register_voting_handlers(bot, logger, ADMIN_ID, CHANNEL_ID)
 
 
 # ========================================================================
@@ -277,6 +279,8 @@ def callbacks(call):
     logger.info(f"Callback '{data}' от пользователя {user.id} @{user.username}")
 
     try:
+        if data.startswith("vote:"):
+            return
         clear_tracked_messages(call.message.chat.id)
         safe_delete_message(call.message.chat.id, call.message.message_id)
 

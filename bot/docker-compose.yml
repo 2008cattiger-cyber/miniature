@@ -8,5 +8,6 @@ services:
       - .env
     volumes:
       - ../media:/app/main/media
+      - ./votes.json:/app/votes.json
     # Эта команда не дает контейнеру завершиться, чтобы мы могли войти внутрь для отладки.
     # command: ["tail", "-f", "/dev/null"]
