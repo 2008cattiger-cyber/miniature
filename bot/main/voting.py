@@ -53,19 +53,35 @@ def _parse_vote_command(text):
     return question, options
 
 
-def _parse_channel_id(text):
+def _extract_channel_override(text):
     if not text:
-        return None, None
-    parts = text.split(" ", 2)
+        return None
+    parts = text.split()
     if len(parts) < 3:
-        return None, None
+        return None
+    if parts[0].lstrip("/").lower() != "vote":
+        return None
     if parts[1].lower() != "channel":
-        return None, None
-    channel_id_raw = parts[2].strip()
+        return None
     try:
-        return int(channel_id_raw), channel_id_raw
+        return int(parts[2])
     except Exception:
-        return None, None
+        return None
+
+
+def _strip_channel_prefix(text):
+    parts = text.split(" ", 3)
+    if len(parts) < 3:
+        return text
+    if parts[1].lower() != "channel":
+        return text
+    try:
+        int(parts[2])
+    except Exception:
+        return text
+    if len(parts) == 3:
+        return parts[0]
+    return f"{parts[0]} {parts[3]}"
 
 
 def _format_end_time(ts):
@@ -117,11 +133,10 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         if not _is_admin(user.id, admin_id):
             return
 
-        channel_override = None
-        if message.text and " channel " in message.text.lower():
-            channel_override, _ = _parse_channel_id(message.text)
+        channel_override = _extract_channel_override(message.text)
+        parse_text = _strip_channel_prefix(message.text) if channel_override else message.text
 
-        question, options = _parse_vote_command(message.text)
+        question, options = _parse_vote_command(parse_text)
         if not question:
             bot.send_message(
                 message.chat.id,
