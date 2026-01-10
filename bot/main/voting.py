@@ -88,6 +88,10 @@ def _format_end_time(ts):
     return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
+def _format_end_date(ts):
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+
+
 def _format_user(info, user_id):
     username = info.get("username")
     name = info.get("name")
@@ -170,18 +174,15 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         text_lines = [
             question,
             "",
-            "Options:",
+            "Выберите несколько вариантов ответа, затем нажмите кнопку Подтвердить ✅.",
+            "",
+            "Кончается: " + _format_end_date(end_at),
         ]
-        for idx, option in enumerate(options):
-            text_lines.append(f"{idx + 1}. {option}")
-        text_lines.append("")
-        text_lines.append("Select one or more options, then press Confirm.")
-        text_lines.append(f"Ends at: {_format_end_time(end_at)}")
         text = "\n".join(text_lines)
 
         markup.add(
             types.InlineKeyboardButton(
-                "Confirm",
+                "Подтвердить ✅",
                 callback_data=f"vote_confirm:{poll_id}"
             )
         )
@@ -333,12 +334,12 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             user_id = str(user.id)
             confirmed = poll.get("confirmed", {}).get(user_id)
             if confirmed:
-                bot.answer_callback_query(call.id, "Vote already confirmed.")
+                bot.answer_callback_query(call.id, "Вы уже проголосовали.")
                 return
 
             selections = poll.get("drafts", {}).get(user_id, [])
             if not selections:
-                bot.answer_callback_query(call.id, "Select at least one option.")
+                bot.answer_callback_query(call.id, "Выберите хотя бы один вариант.")
                 return
 
             poll.setdefault("votes", {})[user_id] = sorted(set(selections))
@@ -349,7 +350,7 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             }
             state["polls"][poll_id] = poll
             _save_state(state)
-            bot.answer_callback_query(call.id, "Vote confirmed.")
+            bot.answer_callback_query(call.id, "Ваш голос учтен.")
             logger.info(f"Vote confirmed in poll {poll_id} from {user_id} -> {selections}")
             return
 
@@ -380,17 +381,17 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         user = call.from_user
         user_id = str(user.id)
         if poll.get("confirmed", {}).get(user_id):
-            bot.answer_callback_query(call.id, "Vote already confirmed.")
+            bot.answer_callback_query(call.id, "Вы уже проголосовали.")
             return
 
         drafts = poll.setdefault("drafts", {})
         selections = set(drafts.get(user_id, []))
         if option_idx in selections:
             selections.remove(option_idx)
-            action_text = "Removed from selection."
+            action_text = "Убрано из выбора."
         else:
             selections.add(option_idx)
-            action_text = "Added to selection."
+            action_text = "Добавлено в выбор."
         drafts[user_id] = sorted(selections)
 
         poll.setdefault("users", {})[user_id] = {
