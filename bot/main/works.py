@@ -9,13 +9,13 @@ CATEGORY_TITLES = {
     "bear": "🧸 Мишки-Тедди",
     "closet": "🚪 Миниатюра на полку",
     "doll": "🪆 Куклы",
+    "flowers": "🌷 Цветы",
     "furniture": "🪑 Мебель",
     "miniature": "🏡 Другое",
     "newyear": "🎄 Новогодние",
+    "plants": "🪴Растения",
     "roombox": "🛋️ Рум-бокс",
     "sea": "🌊 Море",
-    "flowers": "🌷 Цветы",
-    "plants": "🪴Растения",
 }
 
 CATEGORY_ORDER = [
@@ -23,13 +23,13 @@ CATEGORY_ORDER = [
     "bear",
     "closet",
     "doll",
+    "flowers",
     "furniture",
     "miniature",
     "newyear",
+    "plants",
     "roombox",
     "sea",
-    "flowers",
-    "plants",
 ]
 
 
