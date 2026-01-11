@@ -13,6 +13,7 @@ from voting import register_voting_handlers
 bot = telebot.TeleBot(BOT_TOKEN)
 tracked_messages = {}
 register_voting_handlers(bot, logger, ADMIN_ID, CHANNEL_ID)
+PAGE_SIZE = 10
 
 
 # ========================================================================
@@ -168,10 +169,10 @@ def send_categories(chat_id):
 
     for i in range(0, len(categories), 2):
         left_key, left_title = categories[i]
-        row = [types.InlineKeyboardButton(left_title, callback_data=f"cat_{left_key}")]
+        row = [types.InlineKeyboardButton(left_title, callback_data=f"cat:{left_key}:0")]
         if i + 1 < len(categories):
             right_key, right_title = categories[i + 1]
-            row.append(types.InlineKeyboardButton(right_title, callback_data=f"cat_{right_key}"))
+            row.append(types.InlineKeyboardButton(right_title, callback_data=f"cat:{right_key}:0"))
         markup.add(*row)
 
     markup.add(types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_main"))
@@ -199,7 +200,7 @@ def send_subscription_check(chat_id):
 #                     ОТПРАВКА ГРУППЫ ФОТО (АЛЬБОМ)
 # ========================================================================
 
-def send_category_album(chat_id, category):
+def send_category_album(chat_id, category, page=0):
     """
     Отправляет все фото выбранной категории в виде альбома.
     Если тут что-то ломается — ошибка улетит наверх (raise),
@@ -211,6 +212,14 @@ def send_category_album(chat_id, category):
     if not works:
         logger.warning(f"Категория '{category}' пустая или не найдена")
         return
+
+    total_pages = (len(works) + PAGE_SIZE - 1) // PAGE_SIZE
+    if total_pages <= 0:
+        return
+    page = max(0, min(page, total_pages - 1))
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+    works = works[start:end]
 
     media = []
     open_files = []
@@ -238,13 +247,32 @@ def send_category_album(chat_id, category):
             track_message(chat_id, message)
 
         display_name = CATEGORY_TITLES.get(category, category)
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                types.InlineKeyboardButton(
+                    "⬅️ Предыдущие",
+                    callback_data=f"cat:{category}:{page - 1}"
+                )
+            )
+        if page < total_pages - 1:
+            nav_row.append(
+                types.InlineKeyboardButton(
+                    "Следующие ➡️",
+                    callback_data=f"cat:{category}:{page + 1}"
+                )
+            )
+
+        buttons = []
+        if nav_row:
+            buttons.append(nav_row)
+        buttons.append([types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_categories")])
+
         send_tracked_message(
             chat_id,
             TITLES["CATEGORY_HEADER"].format(name=display_name),
             parse_mode="Markdown",
-            reply_markup=create_buttons(
-                [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_categories")]
-            )
+            reply_markup=create_buttons(*buttons)
         )
 
     except Exception as e:
@@ -321,14 +349,25 @@ def callbacks(call):
         elif data == "back_subscribe":
             send_subscription_check(call.message.chat.id)
 
+        elif data.startswith("cat:"):
+            parts = data.split(":", 2)
+            if len(parts) < 3:
+                return
+            category = parts[1]
+            try:
+                page = int(parts[2])
+            except Exception:
+                page = 0
+            send_category_album(call.message.chat.id, category, page)
+
         elif data.startswith("cat_"):
             category = data[4:]
-            send_category_album(call.message.chat.id, category)
+            send_category_album(call.message.chat.id, category, 0)
 
     except Exception as e:
         # 1. Сообщаем пользователю
         fallback_markup = None
-        if data.startswith("cat_"):
+        if data.startswith("cat:") or data.startswith("cat_"):
             fallback_markup = create_buttons(
                 [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_categories")]
             )
