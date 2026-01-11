@@ -14,8 +14,8 @@ CATEGORY_TITLES = {
     "newyear": "🎄 Новогодние",
     "roombox": "🛋️ Рум-бокс",
     "sea": "🌊 Море",
-    "snowman": "❄️ Снеговики",
-    "plants": "🌷 Растения",
+    "flowers": "🌷 Цветы",
+    "plants": "🪴Растения",
 }
 
 CATEGORY_ORDER = [
@@ -28,7 +28,7 @@ CATEGORY_ORDER = [
     "newyear",
     "roombox",
     "sea",
-    "snowman",
+    "flowers",
     "plants",
 ]
 
