@@ -1,4 +1,4 @@
-import json
+﻿import json
 import time
 import uuid
 from datetime import datetime, timezone
@@ -95,11 +95,9 @@ def _format_end_date(ts):
 def _format_user(info, user_id):
     username = info.get("username")
     name = info.get("name")
-    if username:
-        return f"@{username} ({user_id})"
-    if name:
-        return f"{name} ({user_id})"
-    return str(user_id)
+    display_name = name or "-"
+    display_username = f"@{username}" if username else "-"
+    return f"{display_name} ({user_id}) {display_username}"
 
 
 def _build_results_text(poll):
@@ -130,6 +128,45 @@ def _build_results_text(poll):
     return "\n".join(lines).strip()
 
 
+def _parse_channel_and_arg(text):
+    parts = (text or "").split()
+    if len(parts) > 2 and parts[1].lower() == "channel":
+        try:
+            channel_id = int(parts[2])
+        except Exception:
+            return None, None
+        arg = parts[3] if len(parts) > 3 else None
+        return channel_id, arg
+    arg = parts[1] if len(parts) > 1 else None
+    return None, arg
+
+
+def _is_int_string(value):
+    return isinstance(value, str) and value.isdigit()
+
+
+def _format_participants(users, confirmed):
+    confirmed_users = [
+        _format_user(info, user_id)
+        for user_id, info in users.items()
+        if confirmed.get(user_id)
+    ]
+    if not confirmed_users:
+        return None
+    return "\n".join(sorted(confirmed_users))
+
+
+def _collect_confirmed_users(polls):
+    merged = {}
+    for poll in polls:
+        users = poll.get("users", {})
+        confirmed = poll.get("confirmed", {})
+        for user_id, info in users.items():
+            if confirmed.get(user_id) and user_id not in merged:
+                merged[user_id] = info
+    return merged
+
+
 def register_voting_handlers(bot, logger, admin_id, channel_id):
     @bot.message_handler(commands=["help"])
     def handle_help(message):
@@ -147,7 +184,15 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             "/vote_results channel CHANNEL_ID\n"
             "/vote_participants\n"
             "/vote_participants POLL_ID\n"
+            "/vote_participants N\n"
             "/vote_participants channel CHANNEL_ID\n"
+            "/vote_participants channel CHANNEL_ID N\n"
+            "/vote_participants_all\n"
+            "/vote_participants_all channel CHANNEL_ID\n"
+            "/vote_list\n"
+            "/vote_list channel CHANNEL_ID\n"
+            "/vote_delete POLL_ID\n"
+            "/vote_delete channel CHANNEL_ID POLL_ID\n"
             "/vote_close POLL_ID\n"
             "/vote_close channel CHANNEL_ID\n"
         )
@@ -290,14 +335,14 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         if not _is_admin(user.id, admin_id):
             return
 
-        parts = (message.text or "").split()
-        poll_id = parts[1] if len(parts) > 1 else None
-        channel_id_override = None
-        if len(parts) > 2 and parts[1].lower() == "channel":
-            try:
-                channel_id_override = int(parts[2])
-            except Exception:
-                channel_id_override = None
+        channel_id_override, arg = _parse_channel_and_arg(message.text)
+        poll_id = None
+        count = None
+        if arg:
+            if _is_int_string(arg):
+                count = int(arg)
+            else:
+                poll_id = arg
 
         state = _load_state()
         polls = state.get("polls", {})
@@ -305,46 +350,160 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             bot.send_message(message.chat.id, "No polls found.")
             return
 
-        if not poll_id:
-            candidates = list(polls.values())
-            if channel_id_override is not None:
-                candidates = [
-                    poll for poll in candidates
-                    if poll.get("chat_id") == channel_id_override
-                ]
-            if not candidates:
-                bot.send_message(message.chat.id, "No polls found for that channel.")
-                return
-            poll_id = max(candidates, key=lambda p: p.get("created_at", 0))["poll_id"]
-        elif poll_id and poll_id.lower() == "channel" and channel_id_override is not None:
+        candidates = list(polls.values())
+        if channel_id_override is not None:
             candidates = [
-                poll for poll in polls.values()
+                poll for poll in candidates
                 if poll.get("chat_id") == channel_id_override
             ]
             if not candidates:
                 bot.send_message(message.chat.id, "No polls found for that channel.")
                 return
-            poll_id = max(candidates, key=lambda p: p.get("created_at", 0))["poll_id"]
 
+        if poll_id:
+            poll = polls.get(poll_id)
+            if not poll:
+                bot.send_message(message.chat.id, f"Poll not found: {poll_id}")
+                return
+            if channel_id_override is not None and poll.get("chat_id") != channel_id_override:
+                bot.send_message(message.chat.id, "Poll not found for that channel.")
+                return
+            participants = _format_participants(poll.get("users", {}), poll.get("confirmed", {}))
+            if not participants:
+                bot.send_message(message.chat.id, "No participants yet.")
+                return
+            text = "?????????'????????:
+" + participants
+            bot.send_message(message.chat.id, text)
+            return
+
+        if count is not None:
+            if count <= 0:
+                bot.send_message(message.chat.id, "Count must be positive.")
+                return
+            candidates = sorted(candidates, key=lambda p: p.get("created_at", 0), reverse=True)[:count]
+            merged = _collect_confirmed_users(candidates)
+            if not merged:
+                bot.send_message(message.chat.id, "No participants yet.")
+                return
+            participants = "
+".join(sorted(_format_user(info, user_id) for user_id, info in merged.items()))
+            text = "?????????'????????:
+" + participants
+            bot.send_message(message.chat.id, text)
+            return
+
+        if not candidates:
+            bot.send_message(message.chat.id, "No polls found.")
+            return
+        poll_id = max(candidates, key=lambda p: p.get("created_at", 0))["poll_id"]
         poll = polls.get(poll_id)
         if not poll:
             bot.send_message(message.chat.id, f"Poll not found: {poll_id}")
             return
 
-        users = poll.get("users", {})
-        confirmed = poll.get("confirmed", {})
-        confirmed_users = [
-            _format_user(info, user_id)
-            for user_id, info in users.items()
-            if confirmed.get(user_id)
-        ]
-        if not confirmed_users:
+        participants = _format_participants(poll.get("users", {}), poll.get("confirmed", {}))
+        if not participants:
             bot.send_message(message.chat.id, "No participants yet.")
             return
 
-        text = "Участники:\n" + "\n".join(sorted(confirmed_users))
+        text = "?????????'????????:
+" + participants
         bot.send_message(message.chat.id, text)
 
+    @bot.message_handler(commands=["vote_participants_all"])
+    def handle_vote_participants_all(message):
+        user = message.from_user
+        if not _is_admin(user.id, admin_id):
+            return
+
+        channel_id_override, _ = _parse_channel_and_arg(message.text)
+        state = _load_state()
+        polls = state.get("polls", {})
+        if not polls:
+            bot.send_message(message.chat.id, "No polls found.")
+            return
+
+        candidates = list(polls.values())
+        if channel_id_override is not None:
+            candidates = [
+                poll for poll in candidates
+                if poll.get("chat_id") == channel_id_override
+            ]
+            if not candidates:
+                bot.send_message(message.chat.id, "No polls found for that channel.")
+                return
+
+        candidates = sorted(candidates, key=lambda p: p.get("created_at", 0), reverse=True)
+        merged = _collect_confirmed_users(candidates)
+        if not merged:
+            bot.send_message(message.chat.id, "No participants yet.")
+            return
+
+        participants = "
+".join(sorted(_format_user(info, user_id) for user_id, info in merged.items()))
+        text = "?????????'????????:
+" + participants
+        bot.send_message(message.chat.id, text)
+
+    @bot.message_handler(commands=["vote_list"])
+    def handle_vote_list(message):
+        user = message.from_user
+        if not _is_admin(user.id, admin_id):
+            return
+
+        channel_id_override, _ = _parse_channel_and_arg(message.text)
+        state = _load_state()
+        polls = state.get("polls", {})
+        if not polls:
+            bot.send_message(message.chat.id, "No polls found.")
+            return
+
+        candidates = list(polls.values())
+        if channel_id_override is not None:
+            candidates = [
+                poll for poll in candidates
+                if poll.get("chat_id") == channel_id_override
+            ]
+            if not candidates:
+                bot.send_message(message.chat.id, "No polls found for that channel.")
+                return
+
+        lines = []
+        for poll in sorted(candidates, key=lambda p: p.get("created_at", 0), reverse=True):
+            question = poll.get("question", "").strip() or "(no question)"
+            lines.append(f"{poll.get('poll_id')} - {question}")
+        bot.send_message(message.chat.id, "
+".join(lines))
+
+    @bot.message_handler(commands=["vote_delete"])
+    def handle_vote_delete(message):
+        user = message.from_user
+        if not _is_admin(user.id, admin_id):
+            return
+
+        channel_id_override, poll_id = _parse_channel_and_arg(message.text)
+        if not poll_id:
+            bot.send_message(
+                message.chat.id,
+                "Usage: /vote_delete POLL_ID
+"
+                "Optional: /vote_delete channel CHANNEL_ID POLL_ID"
+            )
+            return
+
+        state = _load_state()
+        poll = state.get("polls", {}).get(poll_id)
+        if not poll:
+            bot.send_message(message.chat.id, f"Poll not found: {poll_id}")
+            return
+        if channel_id_override is not None and poll.get("chat_id") != channel_id_override:
+            bot.send_message(message.chat.id, "Poll not found for that channel.")
+            return
+
+        state["polls"].pop(poll_id, None)
+        _save_state(state)
+        bot.send_message(message.chat.id, f"Poll deleted: {poll_id}")
     @bot.message_handler(commands=["vote_close"])
     def handle_vote_close(message):
         user = message.from_user
@@ -486,3 +645,4 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
 
         bot.answer_callback_query(call.id, action_text)
         logger.info(f"Selection update in poll {poll_id} from {user_id} -> {drafts[user_id]}")
+
