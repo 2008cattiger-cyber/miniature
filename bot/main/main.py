@@ -37,7 +37,7 @@ def notify_user_error(chat_id, markup=None):
     try:
         send_tracked_message(
             chat_id,
-            "К сожалению, этот функционал временно недоступен. Мы уже работаем над исправлением.",
+            "⚠️  К сожалению, этот функционал временно недоступен. Мы уже работаем над исправлением.",
             reply_markup=markup
         )
     except Exception:
@@ -51,10 +51,10 @@ def notify_admin_error(user, action, exception_text):
     """
     try:
         text = (
-            "ОШИБКА У ПОЛЬЗОВАТЕЛЯ!\n\n"
-            f"Пользователь: {user.id} (@{user.username})\n"
-            f"Действие: {action}\n\n"
-            f"Ошибка:\n{exception_text}"
+            "🔥 ОШИБКА У ПОЛЬЗОВАТЕЛЯ!\n\n"
+            f"👤 Пользователь: {user.id} (@{user.username})\n"
+            f"🧭 Действие: {action}\n\n"
+            f"📄 Ошибка:\n{exception_text}"
         )
         bot.send_message(ADMIN_ID, text)
     except Exception:
@@ -81,7 +81,7 @@ def send_photo(chat_id, path, caption=None, markup=None):
                 reply_markup=markup,
                 parse_mode="Markdown"
             )
-        logger.info(f"Одиночное фото отправлено: {path} chat({chat_id})")
+        logger.info(f"Одиночное фото отправлено: {path} -> chat({chat_id})")
         logger.info(
             "media_sent",
             extra={"event": "media_sent", "chat_id": chat_id, "path": path, "type": "photo"},
@@ -273,14 +273,14 @@ def send_category_album(chat_id, category, page=0):
         if page > 0:
             nav_row.append(
                 types.InlineKeyboardButton(
-                    "Предыдущие",
+                    "⬅️ Предыдущие",
                     callback_data=f"cat:{category}:{page - 1}"
                 )
             )
         if page < total_pages - 1:
             nav_row.append(
                 types.InlineKeyboardButton(
-                    "Следующие",
+                    "Следующие ➡️",
                     callback_data=f"cat:{category}:{page + 1}"
                 )
             )
@@ -425,7 +425,7 @@ def callbacks(call):
 # ========================================================================
 
 if __name__ == "__main__":
-    logger.info("Бот запущен.")
+    logger.info("Бот запущен ✔")
     bot.polling(none_stop=True)
 
 

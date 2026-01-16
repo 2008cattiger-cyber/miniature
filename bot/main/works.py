@@ -5,17 +5,17 @@ MEDIA_ROOT = Path("media/works")
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 CATEGORY_TITLES = {
-    "basket": "Корзины",
-    "bear": "Мишки-Тедди",
-    "closet": "Миниатюра на полку",
-    "doll": "Куклы",
-    "flowers": "Цветы",
-    "furniture": "Мебель",
-    "miniature": "Другое",
-    "newyear": "Новогодние",
-    "plants": "Растения",
-    "roombox": "Рум-бокс",
-    "sea": "Море",
+    "basket": "🧺 Корзины",
+    "bear": "🧸 Мишки-Тедди",
+    "closet": "🚪 Миниатюра на полку",
+    "doll": "🪆 Куклы",
+    "flowers": "🌷 Цветы",
+    "furniture": "🪑 Мебель",
+    "miniature": "🏡 Другое",
+    "newyear": "🎄 Новогодние",
+    "plants": "🪴Растения",
+    "roombox": "🛋️ Рум-бокс",
+    "sea": "🌊 Море",
 }
 
 CATEGORY_ORDER = [

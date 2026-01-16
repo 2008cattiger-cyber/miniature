@@ -573,7 +573,7 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         text_lines = [
             question,
             "",
-            "Выберите, затем нажмите кнопку Подтвердить.",
+            "Выберите, затем нажмите кнопку Подтвердить ✅.",
             "",
             "Кончается: " + _format_end_date(end_at),
         ]
@@ -581,7 +581,7 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
 
         markup.add(
             types.InlineKeyboardButton(
-                "Подтвердить",
+                "Подтвердить ✅",
                 callback_data=f"vote_confirm:{poll_id}"
             )
         )
