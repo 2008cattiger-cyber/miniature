@@ -1,21 +1,21 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 
 MEDIA_ROOT = Path("media/works")
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 CATEGORY_TITLES = {
-    "basket": "🧺 Корзины",
-    "bear": "🧸 Мишки-Тедди",
-    "closet": "🚪 Миниатюра на полку",
-    "doll": "🪆 Куклы",
-    "flowers": "🌷 Цветы",
-    "furniture": "🪑 Мебель",
-    "miniature": "🏡 Другое",
-    "newyear": "🎄 Новогодние",
-    "plants": "🪴Растения",
-    "roombox": "🛋️ Рум-бокс",
-    "sea": "🌊 Море",
+    "basket": "Корзины",
+    "bear": "Мишки-Тедди",
+    "closet": "Миниатюра на полку",
+    "doll": "Куклы",
+    "flowers": "Цветы",
+    "furniture": "Мебель",
+    "miniature": "Другое",
+    "newyear": "Новогодние",
+    "plants": "Растения",
+    "roombox": "Рум-бокс",
+    "sea": "Море",
 }
 
 CATEGORY_ORDER = [
@@ -60,3 +60,5 @@ def list_category_photos(category):
         if path.is_file() and path.suffix.lower() in IMAGE_EXTS
     ]
     return sorted(files, key=lambda p: p.name.lower())
+
+
