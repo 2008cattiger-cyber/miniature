@@ -1,19 +1,27 @@
-import telebot
+﻿import telebot
 from telebot import types
-import traceback
 
 from works import get_categories, list_category_photos, CATEGORY_TITLES
 from subscription import is_subscribed
 from config import BOT_TOKEN, CHANNEL_ID, ADMIN_ID
-from logger import logger
+from logger import logger, add_telegram_error_handler
 from texts import BUTTONS, MESSAGES, TITLES
 from voting import register_voting_handlers
 
 
 bot = telebot.TeleBot(BOT_TOKEN)
+add_telegram_error_handler(logger, bot, ADMIN_ID)
 tracked_messages = {}
 register_voting_handlers(bot, logger, ADMIN_ID, CHANNEL_ID)
 PAGE_SIZE = 10
+
+
+def log_event(event, user=None, **fields):
+    payload = {"event": event, **fields}
+    if user is not None:
+        payload["user_id"] = user.id
+        payload["username"] = user.username
+    logger.info(event, extra=payload)
 
 
 # ========================================================================
@@ -73,6 +81,7 @@ def send_photo(chat_id, path, caption=None, markup=None):
                 parse_mode="Markdown"
             )
         logger.info(f"Одиночное фото отправлено: {path} → chat({chat_id})")
+        logger.info('media_sent', extra={'event': 'media_sent', 'chat_id': chat_id, 'path': path, 'type': 'photo'})
         return message
 
     except FileNotFoundError:
@@ -139,6 +148,7 @@ def send_main_menu(chat_id):
 def on_start(message):
     user = message.from_user
     logger.info(f"/start от пользователя {user.id} @{user.username}")
+    log_event('command', user, command='start', chat_id=message.chat.id)
 
     clear_tracked_messages(message.chat.id)
     send_main_menu(message.chat.id)
@@ -246,6 +256,8 @@ def send_category_album(chat_id, category, page=0):
         for message in messages:
             track_message(chat_id, message)
 
+        logger.info('media_group_sent', extra={'event': 'media_group_sent', 'chat_id': chat_id, 'category': category, 'count': len(messages)})
+
         display_name = CATEGORY_TITLES.get(category, category)
         nav_row = []
         if page > 0:
@@ -307,7 +319,7 @@ def callbacks(call):
     logger.info(f"Callback '{data}' от пользователя {user.id} @{user.username}")
 
     try:
-        if data.startswith("vote:"):
+        if data.startswith("vote:") or data.startswith("vote_confirm:"):
             return
         clear_tracked_messages(call.message.chat.id)
         safe_delete_message(call.message.chat.id, call.message.message_id)
@@ -324,6 +336,7 @@ def callbacks(call):
         elif data == "check_subscription":
             if is_subscribed(bot, CHANNEL_ID, user.id):
                 logger.info(f"Подписка подтверждена: {user.id}")
+                log_event('subscription_checked', user, chat_id=call.message.chat.id, subscribed=True)
 
                 markup = create_buttons(
                     [types.InlineKeyboardButton(
@@ -335,6 +348,7 @@ def callbacks(call):
                 send_tracked_message(call.message.chat.id, MESSAGES["THANKS_FOR_SUB"], reply_markup=markup)
             else:
                 logger.warning(f"Пользователь {user.id} НЕ подписан на канал")
+                log_event('subscription_checked', user, chat_id=call.message.chat.id, subscribed=False)
                 markup = create_buttons(
                     [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_subscribe")]
                 )
@@ -378,12 +392,7 @@ def callbacks(call):
         notify_user_error(call.message.chat.id, markup=fallback_markup)
 
         # 2. Пишем в лог-файл
-        logger.exception(f"Ошибка в callback '{data}' для пользователя {user.id}: {e}")
-
-        # 3. Шлём админу подробный отчёт
-        full_error = traceback.format_exc()
-        notify_admin_error(user, data, full_error)
-
+        logger.exception(f"Ошибка в callback '{data}' для пользователя {user.id}: {e}", extra={"event": "callback_error", "user_id": user.id, "username": user.username})
 
 # ========================================================================
 #                          ЗАПУСК БОТА
@@ -392,3 +401,5 @@ def callbacks(call):
 if __name__ == "__main__":
     logger.info("Бот запущен ✔")
     bot.polling(none_stop=True)
+
+

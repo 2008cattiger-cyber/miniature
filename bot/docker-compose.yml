@@ -6,10 +6,13 @@ services:
     container_name: my-tg-bot
     env_file:
       - .env
+    environment:
+      - VOTES_DB_PATH=/app/data/votes.db
+      - LOG_DIR=/app/data/logs
     restart: unless-stopped
     volumes:
       - ../media:/app/main/media
-      - ./votes.json:/app/votes.json
+      - ../data:/app/data
     logging:
       driver: "json-file"
       options:
