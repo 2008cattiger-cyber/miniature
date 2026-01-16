@@ -324,6 +324,7 @@ def _clear_draft_selections(poll_id, user_id):
         _DRAFTS.pop(poll_id, None)
 
 
+
 _init_db()
 
 
