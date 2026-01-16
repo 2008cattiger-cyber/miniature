@@ -205,6 +205,7 @@ def _get_poll(poll_id):
                 """,
                 list(user_ids),
             ).fetchall()
+
             users = {
                 row["user_id"]: {"username": row["username"], "name": row["name"]}
                 for row in user_rows
