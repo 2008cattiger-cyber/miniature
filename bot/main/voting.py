@@ -230,6 +230,7 @@ def _create_poll(poll_id, question, options, end_at, chat_id, message_id):
     conn = _get_conn()
     try:
 
+
         conn.execute(
             """
             INSERT INTO polls (poll_id, question, created_at, end_at, chat_id, message_id, closed)
