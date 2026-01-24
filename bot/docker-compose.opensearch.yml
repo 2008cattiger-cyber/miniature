@@ -37,6 +37,8 @@ services:
     container_name: tg-bot-filebeat
     user: root
     command: ["--strict.perms=false"]
+    environment:
+      - OPENSEARCH_ADMIN_PASSWORD=${OPENSEARCH_ADMIN_PASSWORD}
     volumes:
       - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - ./data/logs:/logs:ro
