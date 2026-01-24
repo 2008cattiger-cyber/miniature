@@ -357,13 +357,10 @@ def callbacks(call):
                 masterclasses = load_masterclasses()
                 buttons = []
                 if masterclasses:
-                    for i in range(0, len(masterclasses), 2):
-                        left = masterclasses[i]
-                        row = [types.InlineKeyboardButton(left["title"], url=left["url"])]
-                        if i + 1 < len(masterclasses):
-                            right = masterclasses[i + 1]
-                            row.append(types.InlineKeyboardButton(right["title"], url=right["url"]))
-                        buttons.append(row)
+                    for item in masterclasses:
+                        buttons.append([
+                            types.InlineKeyboardButton(item["title"], url=item["url"])
+                        ])
                 else:
                     buttons.append([
                         types.InlineKeyboardButton(
