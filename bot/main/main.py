@@ -3,6 +3,7 @@ from telebot import types
 import traceback
 
 from works import get_categories, list_category_photos, CATEGORY_TITLES
+from masterclasses import load_masterclasses
 from subscription import is_subscribed
 from config import BOT_TOKEN, CHANNEL_ID, ADMIN_ID
 from logger import logger, add_telegram_error_handler
@@ -353,13 +354,25 @@ def callbacks(call):
                     subscribed=True,
                 )
 
-                markup = create_buttons(
-                    [types.InlineKeyboardButton(
-                        BUTTONS["MASTERCLASS_LINK"],
-                        url="https://disk.yandex.ru/i/5SeUgQ1cjjok0Q"
-                    )],
-                    [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_subscribe")]
-                )
+                masterclasses = load_masterclasses()
+                buttons = []
+                if masterclasses:
+                    for i in range(0, len(masterclasses), 2):
+                        left = masterclasses[i]
+                        row = [types.InlineKeyboardButton(left["title"], url=left["url"])]
+                        if i + 1 < len(masterclasses):
+                            right = masterclasses[i + 1]
+                            row.append(types.InlineKeyboardButton(right["title"], url=right["url"]))
+                        buttons.append(row)
+                else:
+                    buttons.append([
+                        types.InlineKeyboardButton(
+                            BUTTONS["MASTERCLASS_LINK"],
+                            url="https://disk.yandex.ru/i/5SeUgQ1cjjok0Q"
+                        )
+                    ])
+                buttons.append([types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_subscribe")])
+                markup = create_buttons(*buttons)
                 send_tracked_message(call.message.chat.id, MESSAGES["THANKS_FOR_SUB"], reply_markup=markup)
             else:
                 logger.warning(f"Пользователь {user.id} НЕ подписан на канал")
