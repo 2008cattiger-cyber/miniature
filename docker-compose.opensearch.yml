@@ -1,0 +1,72 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.13.0
+    container_name: tg-bot-opensearch
+    environment:
+      - cluster.name=tg-bot-logs
+      - node.name=tg-bot-os-1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_ADMIN_PASSWORD}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+
+  dashboards:
+    image: opensearchproject/opensearch-dashboards:2.13.0
+    container_name: tg-bot-opensearch-dashboards
+    environment:
+      - OPENSEARCH_HOSTS=["https://opensearch:9200"]
+      - OPENSEARCH_USERNAME=admin
+      - OPENSEARCH_PASSWORD=${OPENSEARCH_ADMIN_PASSWORD}
+      - OPENSEARCH_SSL_VERIFICATIONMODE=none
+    depends_on:
+      - opensearch
+    ports:
+      - "5601:5601"
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.11.4
+    container_name: tg-bot-filebeat
+    user: root
+    command: ["--strict.perms=false"]
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./data/logs:/logs:ro
+    depends_on:
+      - opensearch
+
+  opensearch-init:
+    image: curlimages/curl:8.6.0
+    container_name: tg-bot-opensearch-init
+    depends_on:
+      - opensearch
+    environment:
+      - OPENSEARCH_ADMIN_PASSWORD=${OPENSEARCH_ADMIN_PASSWORD}
+    volumes:
+      - ./opensearch/ism-policy.json:/init/ism-policy.json:ro
+      - ./opensearch/index-template.json:/init/index-template.json:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      set -e;
+      until curl -k -s -u admin:$$OPENSEARCH_ADMIN_PASSWORD https://opensearch:9200 >/dev/null; do
+        echo "Waiting for OpenSearch...";
+        sleep 5;
+      done;
+      curl -k -s -u admin:$$OPENSEARCH_ADMIN_PASSWORD -H 'Content-Type: application/json'
+        -X PUT https://opensearch:9200/_plugins/_ism/policies/tg-bot-logs-30d
+        --data-binary @/init/ism-policy.json;
+      curl -k -s -u admin:$$OPENSEARCH_ADMIN_PASSWORD -H 'Content-Type: application/json'
+        -X PUT https://opensearch:9200/_index_template/tg-bot-logs-template
+        --data-binary @/init/index-template.json;
+      echo "OpenSearch ISM policy and template applied.";
+
+volumes:
+  opensearch-data:

@@ -1,0 +1,10 @@
+{
+  "index_patterns": ["tg-bot-logs-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.opendistro.index_state_management.policy_id": "tg-bot-logs-30d"
+    }
+  }
+}
