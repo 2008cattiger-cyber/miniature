@@ -491,6 +491,34 @@ def _format_participants(users, confirmed):
         return None
     return "\n".join(sorted(confirmed_users))
 
+def _build_poll_text(question, end_at):
+    text_lines = [
+        question,
+        "",
+        "Выберите, затем нажмите кнопку Подтвердить ✅.",
+        "",
+        "Кончается: " + _format_end_date(end_at),
+    ]
+    return "\n".join(text_lines)
+
+
+def _build_poll_markup(options, poll_id):
+    markup = types.InlineKeyboardMarkup()
+    for idx, option in enumerate(options):
+        markup.add(
+            types.InlineKeyboardButton(
+                option,
+                callback_data=f"vote:{poll_id}:{idx}"
+            )
+        )
+    markup.add(
+        types.InlineKeyboardButton(
+            "Подтвердить ✅",
+            callback_data=f"vote_confirm:{poll_id}"
+        )
+    )
+    return markup
+
 
 
 def register_voting_handlers(bot, logger, admin_id, channel_id):
@@ -512,6 +540,7 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             "/start\n"
             "/vote Вопрос | Вариант 1 | Вариант 2\n"
             "/vote channel CHANNEL_ID Вопрос | Вариант 1 | Вариант 2\n"
+            "Можно отправить фото с подписью /vote ... (опрос выйдет с фото)\n"
             "/vote_results\n"
             "/vote_results POLL_ID\n"
             "/vote_results channel CHANNEL_ID\n"
@@ -546,7 +575,8 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             bot.send_message(
                 message.chat.id,
                 "Usage: /vote Question | Option 1 | Option 2\n"
-                "Optional: /vote channel -1001234567890 Question | Option 1 | Option 2"
+                "Optional: /vote channel -1001234567890 Question | Option 1 | Option 2\n"
+                "Можно отправить фото с подписью /vote ... (опрос выйдет с фото)"
             )
             return
 
@@ -563,31 +593,8 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
         poll_id = uuid.uuid4().hex[:8]
         end_at = _now_ts() + DEFAULT_DURATION_SECONDS
 
-        markup = types.InlineKeyboardMarkup()
-        for idx, option in enumerate(options):
-            markup.add(
-                types.InlineKeyboardButton(
-                    option,
-                    callback_data=f"vote:{poll_id}:{idx}"
-                )
-            )
-
-        text_lines = [
-            question,
-            "",
-            "Выберите, затем нажмите кнопку Подтвердить ✅.",
-            "",
-            "Кончается: " + _format_end_date(end_at),
-        ]
-        text = "\n".join(text_lines)
-
-        markup.add(
-            types.InlineKeyboardButton(
-                "Подтвердить ✅",
-                callback_data=f"vote_confirm:{poll_id}"
-            )
-        )
-
+        markup = _build_poll_markup(options, poll_id)
+        text = _build_poll_text(question, end_at)
         message_out = bot.send_message(target_chat_id, text, reply_markup=markup)
 
         _create_poll(
@@ -606,6 +613,75 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             options_count=len(options),
         )
         logger.info(f"Created poll {poll_id} in chat {target_chat_id}")
+        if message.chat.id != target_chat_id:
+            bot.send_message(
+                message.chat.id,
+                f"Poll created in channel. Poll ID: {poll_id}"
+            )
+
+    @bot.message_handler(content_types=["photo"])
+    def handle_vote_photo(message):
+        user = message.from_user
+        if not _is_admin(user.id, admin_id):
+            return
+        caption = (message.caption or "").strip()
+        if not caption.lower().startswith("/vote"):
+            return
+
+        log_event("command", user, command="vote_photo", chat_id=message.chat.id)
+
+        channel_override = _extract_channel_override(caption)
+        parse_text = _strip_channel_prefix(caption) if channel_override else caption
+
+        question, options = _parse_vote_command(parse_text)
+        if not question:
+            bot.send_message(
+                message.chat.id,
+                "Usage: /vote Question | Option 1 | Option 2\n"
+                "Optional: /vote channel -1001234567890 Question | Option 1 | Option 2\n"
+                "Фото можно отправлять с подписью /vote ... (опрос выйдет с фото)"
+            )
+            return
+
+        target_chat_id = message.chat.id
+        if channel_override:
+            target_chat_id = channel_override
+        elif message.chat.type == "private":
+            try:
+                target_chat_id = int(channel_id)
+            except Exception:
+                bot.send_message(message.chat.id, "CHANNEL_ID is not set.")
+                return
+
+        poll_id = uuid.uuid4().hex[:8]
+        end_at = _now_ts() + DEFAULT_DURATION_SECONDS
+        markup = _build_poll_markup(options, poll_id)
+        text = _build_poll_text(question, end_at)
+
+        photo = message.photo[-1].file_id if message.photo else None
+        if not photo:
+            bot.send_message(message.chat.id, "Photo not found in message.")
+            return
+
+        message_out = bot.send_photo(target_chat_id, photo, caption=text, reply_markup=markup)
+
+        _create_poll(
+            poll_id,
+            question,
+            options,
+            end_at,
+            target_chat_id,
+            message_out.message_id,
+        )
+        log_event(
+            "poll_created",
+            user,
+            poll_id=poll_id,
+            chat_id=target_chat_id,
+            options_count=len(options),
+            with_photo=True,
+        )
+        logger.info(f"Created poll {poll_id} in chat {target_chat_id} with photo")
         if message.chat.id != target_chat_id:
             bot.send_message(
                 message.chat.id,
