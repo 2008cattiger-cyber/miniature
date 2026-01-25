@@ -540,7 +540,6 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             "/start\n"
             "/vote Вопрос | Вариант 1 | Вариант 2\n"
             "/vote channel CHANNEL_ID Вопрос | Вариант 1 | Вариант 2\n"
-            "Можно отправить фото с подписью /vote ... (опрос выйдет с фото)\n"
             "/vote_results\n"
             "/vote_results POLL_ID\n"
             "/vote_results channel CHANNEL_ID\n"
@@ -575,8 +574,7 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             bot.send_message(
                 message.chat.id,
                 "Usage: /vote Question | Option 1 | Option 2\n"
-                "Optional: /vote channel -1001234567890 Question | Option 1 | Option 2\n"
-                "Можно отправить фото с подписью /vote ... (опрос выйдет с фото)"
+                "Optional: /vote channel -1001234567890 Question | Option 1 | Option 2"
             )
             return
 
@@ -638,8 +636,7 @@ def register_voting_handlers(bot, logger, admin_id, channel_id):
             bot.send_message(
                 message.chat.id,
                 "Usage: /vote Question | Option 1 | Option 2\n"
-                "Optional: /vote channel -1001234567890 Question | Option 1 | Option 2\n"
-                "Фото можно отправлять с подписью /vote ... (опрос выйдет с фото)"
+                "Optional: /vote channel -1001234567890 Question | Option 1 | Option 2"
             )
             return
 
