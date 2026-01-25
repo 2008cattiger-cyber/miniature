@@ -102,6 +102,7 @@ def _poll_row_to_dict(row):
     }
 
 
+
 def _fetch_polls(channel_id=None):
     conn = _get_conn()
     try:
