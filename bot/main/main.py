@@ -16,10 +16,9 @@ add_telegram_error_handler(logger, bot, ADMIN_ID)
 tracked_messages = {}
 register_voting_handlers(bot, logger, ADMIN_ID, CHANNEL_ID)
 PAGE_SIZE = 10
-# Покупка мастер-класса временно отключена.
-# Чтобы включить, раскомментируй BUY_VIDEO_PATH/BUY_USERNAME и блоки ниже (см. ответ).
-# BUY_VIDEO_PATH = "media/buy/video.mp4"
-# BUY_USERNAME = "nr_miniatures"
+BUY_IMAGE_PATH = "media/buy/img.png"
+BUY_USERNAME = "nr_miniatures"
+BUY_POST_URL = "https://t.me/dollminiature/293"
 
 
 def log_event(event, user=None, **fields):
@@ -147,7 +146,7 @@ def send_main_menu(chat_id):
     markup = create_buttons(
         [types.InlineKeyboardButton(BUTTONS["ABOUT_ME"], callback_data="about_me")],
         [types.InlineKeyboardButton(BUTTONS["FREE_MASTER"], callback_data="check")],
-        # [types.InlineKeyboardButton(BUTTONS["BUY_MASTER"], callback_data="buy_master")],
+        [types.InlineKeyboardButton(BUTTONS["BUY_MASTER"], callback_data="buy_master")],
         [types.InlineKeyboardButton(BUTTONS["MY_WORKS"], callback_data="my_job")]
     )
 
@@ -216,34 +215,34 @@ def send_subscription_check(chat_id):
 
 
 # ========================================================================
-#                     ПОКУПКА МАСТЕР-КЛАССА (ОТКЛЮЧЕНО)
+#                     ПОКУПКА МАСТЕР-КЛАССА
 # ========================================================================
-#
-# def send_buy_info(chat_id):
-#     logger.info(f"Пользователь {chat_id} открыл раздел покупки")
-#     markup = create_buttons(
-#         [types.InlineKeyboardButton(BUTTONS["BUY_CONTACT"], url=f"https://t.me/{BUY_USERNAME}")],
-#         [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_main")]
-#     )
-#     try:
-#         with open(BUY_VIDEO_PATH, "rb") as video:
-#             message = bot.send_video(
-#                 chat_id,
-#                 video,
-#                 caption=MESSAGES["BUY_MASTER"],
-#                 reply_markup=markup
-#             )
-#         track_message(chat_id, message)
-#         logger.info(
-#             "media_sent",
-#             extra={"event": "media_sent", "chat_id": chat_id, "path": BUY_VIDEO_PATH, "type": "video"},
-#         )
-#     except FileNotFoundError:
-#         logger.error(f"Видео не найдено: {BUY_VIDEO_PATH}")
-#         send_tracked_message(chat_id, MESSAGES["BUY_MASTER"], reply_markup=markup)
-#     except Exception as e:
-#         logger.error(f"Ошибка при отправке видео {BUY_VIDEO_PATH}: {e}")
-#         send_tracked_message(chat_id, MESSAGES["BUY_MASTER"], reply_markup=markup)
+
+def send_buy_info(chat_id):
+    logger.info(f"Пользователь {chat_id} открыл раздел покупки")
+    markup = create_buttons(
+        [types.InlineKeyboardButton(BUTTONS["BUY_CONTACT"], url=f"https://t.me/{BUY_USERNAME}")],
+        [types.InlineKeyboardButton(BUTTONS["LEARN_MORE"], url=BUY_POST_URL)],
+        [types.InlineKeyboardButton(BUTTONS["BACK"], callback_data="back_main")]
+    )
+    try:
+        message = send_photo(
+            chat_id,
+            BUY_IMAGE_PATH,
+            caption=MESSAGES["BUY_MASTER"],
+            markup=markup
+        )
+        track_message(chat_id, message)
+        logger.info(
+            "media_sent",
+            extra={"event": "media_sent", "chat_id": chat_id, "path": BUY_IMAGE_PATH, "type": "photo"},
+        )
+    except FileNotFoundError:
+        logger.error(f"Фото не найдено: {BUY_IMAGE_PATH}")
+        send_tracked_message(chat_id, MESSAGES["BUY_MASTER"], reply_markup=markup)
+    except Exception as e:
+        logger.error(f"Ошибка при отправке фото {BUY_IMAGE_PATH}: {e}")
+        send_tracked_message(chat_id, MESSAGES["BUY_MASTER"], reply_markup=markup)
 
 
 # ========================================================================
@@ -380,8 +379,8 @@ def callbacks(call):
         elif data == "check":
             send_subscription_check(call.message.chat.id)
 
-        # elif data == "buy_master":
-        #     send_buy_info(call.message.chat.id)
+        elif data == "buy_master":
+            send_buy_info(call.message.chat.id)
 
         elif data == "check_subscription":
             if is_subscribed(bot, CHANNEL_ID, user.id):
